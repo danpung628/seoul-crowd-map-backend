@@ -17,6 +17,8 @@ app.get("/", (req, res) => {
 
 // API 라우트
 app.use("/api/population", populationRouter);
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/favorites", require("./routes/favorites"));
 
 const PORT = process.env.PORT || 3000;
 
