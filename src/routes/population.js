@@ -5,13 +5,22 @@ const {
   getAllPopulationData,
 } = require("../services/seoulApi");
 const Population = require("../models/Population");
+const cache = require("../config/cache");
 
-// 전체 장소 최신 데이터 (DB에서 조회)
+// 전체 장소 최신 데이터 (캐시 적용)
 router.get("/", async (req, res) => {
   try {
-    // 가장 최근 수집 시간 찾기
-    const latest = await Population.findOne().sort({ collectedAt: -1 });
+    const cached = cache.get("allPopulation");
+    if (cached) {
+      return res.json({
+        success: true,
+        count: cached.length,
+        data: cached,
+        cached: true,
+      });
+    }
 
+    const latest = await Population.findOne().sort({ collectedAt: -1 });
     if (!latest) {
       return res.json({
         success: true,
@@ -21,18 +30,19 @@ router.get("/", async (req, res) => {
       });
     }
 
-    // 해당 시간의 모든 데이터 조회
     const data = await Population.find({ collectedAt: latest.collectedAt })
       .select("-_id -__v")
-      .sort({ areaName: 1 });
+      .sort({ areaName: 1 })
+      .lean();
 
-    res.json({ success: true, count: data.length, data });
+    cache.set("allPopulation", data);
+    res.json({ success: true, count: data.length, data, cached: false });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 실시간 API 직접 호출 (DB 거치지 않음)
+// 실시간 API 직접 호출
 router.get("/realtime", async (req, res) => {
   try {
     const data = await getAllPopulationData();
@@ -42,15 +52,76 @@ router.get("/realtime", async (req, res) => {
   }
 });
 
-// 특정 장소 최신 데이터
+// TOP 3 혼잡/한산 지역 (캐시 적용)
+router.get("/ranking/top", async (req, res) => {
+  try {
+    const cached = cache.get("ranking");
+    if (cached) {
+      return res.json({ ...cached, cached: true });
+    }
+
+    const latest = await Population.findOne().sort({ collectedAt: -1 });
+    if (!latest) {
+      return res.json({ success: true, crowded: [], quiet: [] });
+    }
+
+    const allData = await Population.find({ collectedAt: latest.collectedAt })
+      .select("-_id -__v")
+      .lean();
+
+    const congestionScore = {
+      붐빔: 4,
+      "약간 붐빔": 3,
+      보통: 2,
+      여유: 1,
+    };
+
+    const maxPop = Math.max(...allData.map((d) => d.populationMax || 0));
+
+    const scored = allData.map((item) => {
+      const cScore = congestionScore[item.congestionLevel] || 1;
+      const popNorm =
+        maxPop > 0 ? Math.round((item.populationMax / maxPop) * 99) : 0;
+      const totalScore = cScore * 100 + popNorm;
+      return { ...item, totalScore };
+    });
+
+    scored.sort((a, b) => b.totalScore - a.totalScore);
+    const crowded = scored.slice(0, 3).map(({ totalScore, ...rest }) => ({
+      ...rest,
+      crowdScore: totalScore,
+    }));
+    const quiet = scored
+      .slice(-3)
+      .reverse()
+      .map(({ totalScore, ...rest }) => ({
+        ...rest,
+        crowdScore: totalScore,
+      }));
+
+    const result = { success: true, crowded, quiet };
+    cache.set("ranking", result);
+    res.json({ ...result, cached: false });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 특정 장소 최신 데이터 (캐시 적용)
 router.get("/:placeName", async (req, res) => {
   try {
+    const cacheKey = `place_${req.params.placeName}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, data: cached, cached: true });
+    }
+
     const data = await Population.findOne({ areaName: req.params.placeName })
       .sort({ collectedAt: -1 })
-      .select("-_id -__v");
+      .select("-_id -__v")
+      .lean();
 
     if (!data) {
-      // DB에 없으면 API 직접 호출
       const apiData = await getPopulationData(req.params.placeName);
       if (!apiData) {
         return res
@@ -60,7 +131,8 @@ router.get("/:placeName", async (req, res) => {
       return res.json({ success: true, data: apiData });
     }
 
-    res.json({ success: true, data });
+    cache.set(cacheKey, data);
+    res.json({ success: true, data, cached: false });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -76,7 +148,8 @@ router.get("/:placeName/history", async (req, res) => {
       collectedAt: { $gte: since },
     })
       .select("-_id -__v")
-      .sort({ collectedAt: 1 });
+      .sort({ collectedAt: 1 })
+      .lean();
 
     res.json({ success: true, count: data.length, data });
   } catch (error) {
@@ -84,59 +157,4 @@ router.get("/:placeName/history", async (req, res) => {
   }
 });
 
-// TOP 3 혼잡/한산 지역
-router.get("/ranking/top", async (req, res) => {
-  try {
-    const latest = await Population.findOne().sort({ collectedAt: -1 });
-
-    if (!latest) {
-      return res.json({ success: true, crowded: [], quiet: [] });
-    }
-
-    const allData = await Population.find({ collectedAt: latest.collectedAt })
-      .select("-_id -__v")
-      .lean();
-
-    // 혼잡도 점수 매핑
-    const congestionScore = {
-      붐빔: 4,
-      "약간 붐빔": 3,
-      보통: 2,
-      여유: 1,
-    };
-
-    // 전체 중 최대 인구수 (정규화용)
-    const maxPop = Math.max(...allData.map((d) => d.populationMax || 0));
-
-    // 최종 점수 계산
-    const scored = allData.map((item) => {
-      const cScore = congestionScore[item.congestionLevel] || 1;
-      const popNorm =
-        maxPop > 0 ? Math.round((item.populationMax / maxPop) * 99) : 0;
-      const totalScore = cScore * 100 + popNorm;
-
-      return { ...item, totalScore };
-    });
-
-    // 점수 높은 순 = 혼잡한 곳
-    scored.sort((a, b) => b.totalScore - a.totalScore);
-    const crowded = scored.slice(0, 3).map(({ totalScore, ...rest }) => ({
-      ...rest,
-      crowdScore: totalScore,
-    }));
-
-    // 점수 낮은 순 = 한산한 곳
-    const quiet = scored
-      .slice(-3)
-      .reverse()
-      .map(({ totalScore, ...rest }) => ({
-        ...rest,
-        crowdScore: totalScore,
-      }));
-
-    res.json({ success: true, crowded, quiet });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 module.exports = router;
