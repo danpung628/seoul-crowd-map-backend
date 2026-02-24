@@ -54,6 +54,20 @@ router.post("/google", async (req, res) => {
   try {
     const { credential } = req.body;
 
+    // 입력값 검증
+    if (!credential || typeof credential !== "string") {
+      return res
+        .status(400)
+        .json({ success: false, message: "credential이 필요합니다" });
+    }
+
+    // credential 길이 제한 (JWT 토큰은 일반적으로 2KB 미만)
+    if (credential.length > 4096) {
+      return res
+        .status(400)
+        .json({ success: false, message: "유효하지 않은 credential입니다" });
+    }
+
     const ticket = await client.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID,

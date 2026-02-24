@@ -15,4 +15,7 @@ const populationSchema = new mongoose.Schema({
 populationSchema.index({ areaName: 1, collectedAt: -1 });
 populationSchema.index({ collectedAt: -1 });
 
+// TTL 인덱스: 7일 후 자동 삭제
+populationSchema.index({ collectedAt: 1 }, { expireAfterSeconds: 7 * 24 * 60 * 60 });
+
 module.exports = mongoose.model("Population", populationSchema);

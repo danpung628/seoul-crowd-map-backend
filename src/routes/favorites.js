@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
 const User = require("../models/User");
+const { validatePlaceName } = require("../middleware/validate");
 
 /**
  * @swagger
@@ -62,15 +63,9 @@ router.get("/", auth, async (req, res) => {
  *       400:
  *         description: 이미 즐겨찾기에 있음
  */
-router.post("/", auth, async (req, res) => {
+router.post("/", auth, validatePlaceName, async (req, res) => {
   try {
     const { placeName } = req.body;
-
-    if (!placeName) {
-      return res
-        .status(400)
-        .json({ success: false, message: "장소명을 입력해주세요" });
-    }
 
     const user = await User.findById(req.userId);
 
@@ -108,7 +103,7 @@ router.post("/", auth, async (req, res) => {
  *       200:
  *         description: 성공
  */
-router.delete("/:placeName", auth, async (req, res) => {
+router.delete("/:placeName", auth, validatePlaceName, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     user.favorites = user.favorites.filter((f) => f !== req.params.placeName);

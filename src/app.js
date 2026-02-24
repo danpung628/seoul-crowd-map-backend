@@ -1,16 +1,39 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const connectDB = require("./config/db");
 const populationRouter = require("./routes/population");
 const { collectAndSave } = require("./services/collector");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
+const {
+  apiLimiter,
+  authLimiter,
+  validateEnv,
+} = require("./config/security");
 require("dotenv").config();
+
+// 환경변수 검증
+validateEnv();
 
 const app = express();
 
+// 보안 헤더 설정
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Swagger UI 호환
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10kb" })); // 요청 본문 크기 제한
+
+// 전역 Rate Limiter
+app.use("/api/", apiLimiter);
+
+// 인증 API에 더 강력한 Rate Limiter 적용
+app.use("/api/auth", authLimiter);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

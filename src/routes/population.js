@@ -6,6 +6,8 @@ const {
 } = require("../services/seoulApi");
 const Population = require("../models/Population");
 const cache = require("../config/cache");
+const { realtimeLimiter } = require("../config/security");
+const { validatePlaceName } = require("../middleware/validate");
 
 /**
  * @swagger
@@ -79,7 +81,7 @@ router.get("/", async (req, res) => {
  *       200:
  *         description: 성공
  */
-router.get("/realtime", async (req, res) => {
+router.get("/realtime", realtimeLimiter, async (req, res) => {
   try {
     const data = await getAllPopulationData();
     res.json({ success: true, count: data.length, data });
@@ -194,7 +196,7 @@ router.get("/ranking/top", async (req, res) => {
  *       404:
  *         description: 데이터를 찾을 수 없음
  */
-router.get("/:placeName", async (req, res) => {
+router.get("/:placeName", validatePlaceName, async (req, res) => {
   try {
     const cacheKey = `place_${req.params.placeName}`;
     const cached = cache.get(cacheKey);
@@ -242,7 +244,7 @@ router.get("/:placeName", async (req, res) => {
  *       200:
  *         description: 성공
  */
-router.get("/:placeName/history", async (req, res) => {
+router.get("/:placeName/history", validatePlaceName, async (req, res) => {
   try {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
