@@ -7,7 +7,33 @@ const {
 const Population = require("../models/Population");
 const cache = require("../config/cache");
 
-// 전체 장소 최신 데이터 (캐시 적용)
+/**
+ * @swagger
+ * /api/population:
+ *   get:
+ *     summary: 전체 장소 최신 데이터
+ *     description: DB에 저장된 120개 장소의 최신 인구 데이터를 반환합니다. 5분 캐싱 적용.
+ *     tags: [인구 데이터]
+ *     responses:
+ *       200:
+ *         description: 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                   example: 120
+ *                 cached:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Population'
+ */
 router.get("/", async (req, res) => {
   try {
     const cached = cache.get("allPopulation");
@@ -42,7 +68,17 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 실시간 API 직접 호출
+/**
+ * @swagger
+ * /api/population/realtime:
+ *   get:
+ *     summary: 실시간 직접 호출
+ *     description: 서울시 API를 직접 호출합니다. DB를 거치지 않으며 약 30초 소요됩니다.
+ *     tags: [인구 데이터]
+ *     responses:
+ *       200:
+ *         description: 성공
+ */
 router.get("/realtime", async (req, res) => {
   try {
     const data = await getAllPopulationData();
@@ -52,7 +88,37 @@ router.get("/realtime", async (req, res) => {
   }
 });
 
-// TOP 3 혼잡/한산 지역 (캐시 적용)
+/**
+ * @swagger
+ * /api/population/ranking/top:
+ *   get:
+ *     summary: 혼잡/한산 TOP 3 랭킹
+ *     description: |
+ *       혼잡도 점수 기반 상위 3개(혼잡)와 하위 3개(한산) 장소를 반환합니다.
+ *       점수 공식: crowdScore = (혼잡도 점수 × 100) + 정규화된 인구수(0~99)
+ *       혼잡도 점수: 붐빔=4, 약간 붐빔=3, 보통=2, 여유=1
+ *     tags: [인구 데이터]
+ *     responses:
+ *       200:
+ *         description: 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 cached:
+ *                   type: boolean
+ *                 crowded:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RankedPopulation'
+ *                 quiet:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RankedPopulation'
+ */
 router.get("/ranking/top", async (req, res) => {
   try {
     const cached = cache.get("ranking");
@@ -107,7 +173,27 @@ router.get("/ranking/top", async (req, res) => {
   }
 });
 
-// 특정 장소 최신 데이터 (캐시 적용)
+/**
+ * @swagger
+ * /api/population/{placeName}:
+ *   get:
+ *     summary: 특정 장소 데이터
+ *     description: 특정 장소의 최신 인구 데이터를 반환합니다.
+ *     tags: [인구 데이터]
+ *     parameters:
+ *       - in: path
+ *         name: placeName
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 장소명 (예: 강남역, 홍대 관광특구)
+ *         example: 강남역
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       404:
+ *         description: 데이터를 찾을 수 없음
+ */
 router.get("/:placeName", async (req, res) => {
   try {
     const cacheKey = `place_${req.params.placeName}`;
@@ -138,7 +224,24 @@ router.get("/:placeName", async (req, res) => {
   }
 });
 
-// 특정 장소 시간대별 추이 (최근 24시간)
+/**
+ * @swagger
+ * /api/population/{placeName}/history:
+ *   get:
+ *     summary: 시간대별 추이 (최근 24시간)
+ *     description: 최근 24시간 동안 수집된 특정 장소의 인구 데이터를 반환합니다.
+ *     tags: [인구 데이터]
+ *     parameters:
+ *       - in: path
+ *         name: placeName
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 강남역
+ *     responses:
+ *       200:
+ *         description: 성공
+ */
 router.get("/:placeName/history", async (req, res) => {
   try {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);

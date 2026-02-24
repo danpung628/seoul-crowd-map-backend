@@ -3,12 +3,16 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const populationRouter = require("./routes/population");
 const { collectAndSave } = require("./services/collector");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 require("dotenv").config();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 기본 라우트
 app.get("/", (req, res) => {
