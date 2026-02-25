@@ -2,11 +2,9 @@ const express = require("express");
 const router = express.Router();
 const {
   getPopulationData,
-  getAllPopulationData,
 } = require("../services/seoulApi");
 const Population = require("../models/Population");
 const cache = require("../config/cache");
-const { realtimeLimiter } = require("../config/security");
 const { validatePlaceName } = require("../middleware/validate");
 
 /**
@@ -65,26 +63,6 @@ router.get("/", async (req, res) => {
 
     cache.set("allPopulation", data);
     res.json({ success: true, count: data.length, data, cached: false });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-/**
- * @swagger
- * /api/population/realtime:
- *   get:
- *     summary: 실시간 직접 호출
- *     description: 서울시 API를 직접 호출합니다. DB를 거치지 않으며 약 30초 소요됩니다.
- *     tags: [인구 데이터]
- *     responses:
- *       200:
- *         description: 성공
- */
-router.get("/realtime", realtimeLimiter, async (req, res) => {
-  try {
-    const data = await getAllPopulationData();
-    res.json({ success: true, count: data.length, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

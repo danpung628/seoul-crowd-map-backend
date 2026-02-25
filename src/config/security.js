@@ -24,18 +24,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// 실시간 API 요청 제한 (IP당 5분에 5회 - 서울시 API 보호)
-const realtimeLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5분
-  max: 5,
-  message: {
-    success: false,
-    message: "실시간 API 요청이 너무 많습니다. 5분 후에 다시 시도해주세요.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 // 환경변수 검증
 const validateEnv = () => {
   const required = [
@@ -63,6 +51,5 @@ const validateEnv = () => {
 module.exports = {
   apiLimiter,
   authLimiter,
-  realtimeLimiter,
   validateEnv,
 };
