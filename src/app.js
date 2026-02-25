@@ -60,9 +60,9 @@ const startServer = async () => {
   console.log("📡 첫 데이터 수집을 시작합니다...");
   await collectAndSave();
 
-  // 5분마다 자동 수집
-  setInterval(collectAndSave, 5 * 60 * 1000);
-  console.log("⏰ 5분마다 자동 수집이 설정되었습니다");
+  // 24시간마다 자동 수집
+  setInterval(collectAndSave, 24 * 60 * 60 * 1000);
+  console.log("⏰ 24시간마다 자동 수집이 설정되었습니다");
 };
 
 startServer();
