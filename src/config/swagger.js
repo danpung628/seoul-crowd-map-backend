@@ -41,6 +41,12 @@ const options = {
             },
             populationMin: { type: "integer", example: 42000 },
             populationMax: { type: "integer", example: 44000 },
+            latitude: { type: "number", example: 37.4979, description: "위도" },
+            longitude: {
+              type: "number",
+              example: 127.0276,
+              description: "경도",
+            },
             updatedAt: { type: "string", example: "2026-02-08 14:35" },
             collectedAt: { type: "string", format: "date-time" },
           },
