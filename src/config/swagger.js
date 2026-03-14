@@ -9,12 +9,13 @@ const options = {
       description: "서울시 실시간 인구밀도 시각화 서비스 API",
     },
     servers: [
-      { url: "http://localhost:3000", description: "Development" },
       {
         url: "http://13.125.207.164:3000",
         description: "Production (AWS EC2)",
       },
+      { url: "http://localhost:3000", description: "Development" },
     ],
+
     components: {
       securitySchemes: {
         bearerAuth: {
