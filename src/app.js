@@ -60,9 +60,21 @@ const startServer = async () => {
   console.log("📡 첫 데이터 수집을 시작합니다...");
   await collectAndSave();
 
-  // 24시간마다 자동 수집
-  setInterval(collectAndSave, 24 * 60 * 60 * 1000);
-  console.log("⏰ 24시간마다 자동 수집이 설정되었습니다");
+  // 매 정시(1시간 간격)마다 자동 수집
+  const scheduleNextHour = () => {
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(now.getHours() + 1, 0, 0, 0);
+    const delay = next - now;
+
+    setTimeout(() => {
+      collectAndSave();
+      setInterval(collectAndSave, 60 * 60 * 1000);
+    }, delay);
+
+    console.log(`⏰ 다음 수집 예정: ${next.toLocaleTimeString()} (1시간 간격 정시 수집)`);
+  };
+  scheduleNextHour();
 };
 
 startServer();
