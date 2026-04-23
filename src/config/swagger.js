@@ -10,10 +10,13 @@ const options = {
     },
     servers: [
       {
-        url: "http://13.125.207.164:3000",
+        url: "https://seoulcrowdmap.duckdns.org",
         description: "Production (AWS EC2)",
       },
-      { url: "http://localhost:3000", description: "Development" },
+      {
+        url: "http://localhost:3000",
+        description: "Development",
+      },
     ],
 
     components: {
