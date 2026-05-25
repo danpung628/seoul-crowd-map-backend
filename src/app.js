@@ -6,11 +6,7 @@ const populationRouter = require("./routes/population");
 const { collectAndSave } = require("./services/collector");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
-const {
-  apiLimiter,
-  authLimiter,
-  validateEnv,
-} = require("./config/security");
+const { apiLimiter, authLimiter, validateEnv } = require("./config/security");
 require("dotenv").config();
 
 // 환경변수 검증
@@ -23,7 +19,7 @@ app.use(
   helmet({
     contentSecurityPolicy: false, // Swagger UI 호환
     crossOriginEmbedderPolicy: false,
-  })
+  }),
 );
 
 app.use(cors());
@@ -60,21 +56,24 @@ const startServer = async () => {
   console.log("📡 첫 데이터 수집을 시작합니다...");
   await collectAndSave();
 
-  // 매 정시(1시간 간격)마다 자동 수집
-  const scheduleNextHour = () => {
+  // 매 5분 정각(0, 5, 10, ..., 55분)마다 자동 수집
+  const scheduleNext5Min = () => {
     const now = new Date();
     const next = new Date(now);
-    next.setHours(now.getHours() + 1, 0, 0, 0);
+    const nextMinute = Math.ceil((now.getMinutes() + 1) / 5) * 5;
+    next.setMinutes(nextMinute, 0, 0);
     const delay = next - now;
 
     setTimeout(() => {
       collectAndSave();
-      setInterval(collectAndSave, 60 * 60 * 1000);
+      setInterval(collectAndSave, 5 * 60 * 1000);
     }, delay);
 
-    console.log(`⏰ 다음 수집 예정: ${next.toLocaleTimeString()} (1시간 간격 정시 수집)`);
+    console.log(
+      `⏰ 다음 수집 예정: ${next.toLocaleTimeString()} (5분 간격 정시 수집)`,
+    );
   };
-  scheduleNextHour();
+  scheduleNext5Min();
 };
 
 startServer();
