@@ -1,11 +1,20 @@
 const express = require("express");
 const router = express.Router();
-const {
-  getPopulationData,
-} = require("../services/seoulApi");
+const { getPopulationData } = require("../services/seoulApi");
 const Population = require("../models/Population");
 const cache = require("../config/cache");
 const { validatePlaceName } = require("../middleware/validate");
+const LOCATION_COORDINATES = require("../data/locationCoordinates");
+
+// 데이터에 좌표 추가
+function addCoordinates(item) {
+  const coords = LOCATION_COORDINATES[item.areaName];
+  return {
+    ...item,
+    latitude: coords?.lat || null,
+    longitude: coords?.lng || null,
+  };
+}
 
 /**
  * @swagger
@@ -61,8 +70,14 @@ router.get("/", async (req, res) => {
       .sort({ areaName: 1 })
       .lean();
 
-    cache.set("allPopulation", data);
-    res.json({ success: true, count: data.length, data, cached: false });
+    const dataWithCoords = data.map(addCoordinates);
+    cache.set("allPopulation", dataWithCoords);
+    res.json({
+      success: true,
+      count: dataWithCoords.length,
+      data: dataWithCoords,
+      cached: false,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -133,17 +148,17 @@ router.get("/ranking/top", async (req, res) => {
     });
 
     scored.sort((a, b) => b.totalScore - a.totalScore);
-    const crowded = scored.slice(0, 3).map(({ totalScore, ...rest }) => ({
-      ...rest,
-      crowdScore: totalScore,
-    }));
+    const crowded = scored
+      .slice(0, 3)
+      .map(({ totalScore, ...rest }) =>
+        addCoordinates({ ...rest, crowdScore: totalScore }),
+      );
     const quiet = scored
       .slice(-3)
       .reverse()
-      .map(({ totalScore, ...rest }) => ({
-        ...rest,
-        crowdScore: totalScore,
-      }));
+      .map(({ totalScore, ...rest }) =>
+        addCoordinates({ ...rest, crowdScore: totalScore }),
+      );
 
     const result = { success: true, crowded, quiet };
     cache.set("ranking", result);
@@ -194,11 +209,12 @@ router.get("/:placeName", validatePlaceName, async (req, res) => {
           .status(404)
           .json({ success: false, message: "데이터를 찾을 수 없습니다" });
       }
-      return res.json({ success: true, data: apiData });
+      return res.json({ success: true, data: addCoordinates(apiData) });
     }
 
-    cache.set(cacheKey, data);
-    res.json({ success: true, data, cached: false });
+    const dataWithCoords = addCoordinates(data);
+    cache.set(cacheKey, dataWithCoords);
+    res.json({ success: true, data: dataWithCoords, cached: false });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -234,7 +250,12 @@ router.get("/:placeName/history", validatePlaceName, async (req, res) => {
       .sort({ collectedAt: 1 })
       .lean();
 
-    res.json({ success: true, count: data.length, data });
+    const dataWithCoords = data.map(addCoordinates);
+    res.json({
+      success: true,
+      count: dataWithCoords.length,
+      data: dataWithCoords,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
