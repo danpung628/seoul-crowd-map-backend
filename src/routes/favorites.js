@@ -115,4 +115,41 @@ router.delete("/:placeName", auth, validatePlaceName, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/favorites:
+ *   delete:
+ *     summary: 즐겨찾기 삭제 (body)
+ *     description: placeName을 body로 받아 즐겨찾기에서 제거합니다.
+ *     tags: [즐겨찾기]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - placeName
+ *             properties:
+ *               placeName:
+ *                 type: string
+ *                 example: 강남역
+ *     responses:
+ *       200:
+ *         description: 성공
+ */
+router.delete("/", auth, validatePlaceName, async (req, res) => {
+  try {
+    const { placeName } = req.body;
+    const user = await User.findById(req.userId);
+    user.favorites = user.favorites.filter((f) => f !== placeName);
+    await user.save();
+    res.json({ success: true, favorites: user.favorites });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
